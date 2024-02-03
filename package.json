@@ -1,13 +1,14 @@
 {
   "name": "@exotjs/redis-store",
-  "version": "0.0.1",
-  "description": "",
+  "version": "0.1.0",
+  "description": "Redis store for Exot Inspector",
   "author": "Daniel Regeci",
   "license": "MIT",
   "keywords": [
     "exot",
     "inspector",
-    "measurements"
+    "redis",
+    "store"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",

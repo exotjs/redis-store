@@ -1,17 +1,22 @@
-import { Store, StoreEntry, StoreQueryResult } from '@exotjs/inspector-measurements/types';
+import { Store, StoreQueryResult } from '@exotjs/measurements/types';
 import { RedisClient, RedisStoreInit } from './types';
 export declare class RedisStore implements Store {
-    readonly partitionSize: number;
+    #private;
+    readonly nodeId: string;
     readonly keyPrefix: string;
+    readonly partitionSize: number;
     readonly redis?: RedisClient;
+    uidCounter: number;
     constructor(init: RedisStoreInit);
     getPartitionKey(key: string, time: number): string;
     getClient(): RedisClient;
-    delete(key: string, time: number): Promise<void>;
+    generateEntryUid(): string;
+    clear(key?: string | undefined): Promise<void>;
     destroy(): Promise<void>;
-    get(key: string, time: number): Promise<StoreEntry | undefined>;
-    push(key: string, entry: StoreEntry, expire?: number): Promise<void>;
-    set(key: string, entry: StoreEntry, expire?: number): Promise<void>;
-    query(key: string, startTime: number, endTime: number, limit?: number): Promise<StoreQueryResult>;
-    clear(key?: string): Promise<void>;
+    listDelete(key: string, time: number, label?: string): Promise<void>;
+    listAdd<T>(key: string, time: number, value: T, label?: string, expire?: number | undefined): Promise<void>;
+    listQuery(key: string, startTime: number, endTime: number, limit?: number): Promise<StoreQueryResult>;
+    setAdd<T>(key: string, time: number, value: T, label?: string, expire?: number | undefined): Promise<void>;
+    setDelete(key: string, time: number, label?: string | undefined): Promise<void>;
+    setQuery(key: string, startTime: number, endTime: number, limit?: number): Promise<StoreQueryResult>;
 }

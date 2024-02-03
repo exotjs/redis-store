@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Redis } from 'ioredis';
 import { RedisStore } from '../lib/index.js';
 
@@ -9,23 +9,33 @@ describe('RedisStore', () => {
 
   beforeEach(() => {
     store = new RedisStore({
+      keyPrefix: 'storetest:',
+      partitionSize: 3600000,
       redis,
     });
   });
 
   afterEach(async () => {
-    await redis.del('test:0');
+    await redis.del('storetest:test:0');
   });
 
   afterAll(async () => {
     await store.destroy();
   });
 
-  describe('.generateUid()', () => {
+  describe('.getPartitionKey()', () => {
+    it('should return partition key with prefix', () => {
+      const time = Date.now();
+      const key = store.getPartitionKey('test', time);
+      expect(key).toEqual(`${store.keyPrefix}test:${Math.floor(time / store.partitionSize) * store.partitionSize}`);
+    });
+  });
+
+  describe('.generateEntryUid()', () => {
     it('should generate unique IDs', () => {
-      const uid1 = store.generateUid();
-      const uid2 = store.generateUid();
-      const uid3 = store.generateUid();
+      const uid1 = store.generateEntryUid();
+      const uid2 = store.generateEntryUid();
+      const uid3 = store.generateEntryUid();
       expect(uid1 !== uid2 && uid1 !== uid3 && uid2 !== uid3);
     });
   });
@@ -81,7 +91,7 @@ describe('RedisStore', () => {
   });
   
   describe('.setAdd()', () => {
-    it('should add one entry to the list', async () => {
+    it('should add one entry to the set', async () => {
       await store.setAdd('test', 0, 'a');
       await store.setAdd('test', 0, 'b');
       await store.setAdd('test', 0, 'c');
@@ -89,6 +99,21 @@ describe('RedisStore', () => {
       expect(result).toEqual({
         entries: [
           [0, '', 'c'],
+        ],
+        hasMore: false,
+      });
+    });
+  });
+
+  describe('.setDelete()', () => {
+    it('should delete a matching entries from the list', async () => {
+      await store.setAdd('test', 0, 'a', 'label1');
+      await store.setAdd('test', 0, 'b', 'label2');
+      await store.setDelete('test', 0, 'label1');
+      const result = await store.setQuery('test', 0, 1);
+      expect(result).toEqual({
+        entries: [
+          [0, 'label2', 'b'],
         ],
         hasMore: false,
       });

@@ -5,6 +5,7 @@ export interface RedisClient {
     quit(): Promise<any>;
     zadd(...args: any[]): Promise<string>;
     zrange(...args: any[]): Promise<string[]>;
+    zrem(...args: any[]): Promise<number>;
     zremrangebyscore(...args: any[]): Promise<number>;
 }
 export interface RedisChainableCommands {
@@ -13,10 +14,11 @@ export interface RedisChainableCommands {
     expire(...args: any[]): RedisChainableCommands;
     zadd(...args: any[]): RedisChainableCommands;
     zrange(...args: any[]): RedisChainableCommands;
+    zrem(...args: any[]): RedisChainableCommands;
     zremrangebyscore(...args: any[]): RedisChainableCommands;
 }
 export interface RedisStoreInit {
     keyPrefix?: string;
     partitionSize?: number;
-    redis: RedisClient;
+    redis: unknown;
 }
