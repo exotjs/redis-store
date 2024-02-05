@@ -15,7 +15,7 @@ export class RedisStore implements Store {
 
   constructor(init: RedisStoreInit) {
     const {
-      keyPrefix = '',
+      keyPrefix = 'inspector:',
       partitionSize = 3600000, // 1 hour
       redis,
     } = init;
@@ -90,7 +90,7 @@ export class RedisStore implements Store {
 
   async destroy() {
     if (this.redis) {
-      //await this.redis.quit();
+      await this.redis.quit();
     }
   }
 

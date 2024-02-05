@@ -1,13 +1,12 @@
 # Exot Redis Store
 
-This package contains Redis-backed persistant store for [Exot Inspector](https://exot.dev).
+A Redis-backed persistent store designed for use with the [Exot Inspector](https://exot.dev).
 
+## Data structure
 
-## How it works
+In the Redis store, both data structures required by the Exot Inspector — sets and lists — are implemented using "sorted sets."
 
-The Exot Store supports two types of data structures: sets (maps), and lists (arrays). In the Redis Store, both structures are implemented using "sorted sets".
-
-The store creates partitions of data based on the timestamp of the entry, where the default partition size is 1 hour (configurable via `partitionSize`) to accomodate both fast lookups and efficient data expiration. Each partition represents a "sorted set" containing individual entries winthing it's time boundary, where the timestamp of the entry is the "score".
+The store organizes data into partitions based on the entry timestamp (with the default partition size set to 1 hour). This approach facilitates fast lookups and efficient data expiration. Each partition is represented as a "sorted set" containing individual entries within its time boundary, with the entry timestamp serving as the "score."
 
 ## Usage
 
@@ -23,7 +22,7 @@ const inspector = new Inspector({
 });
 ```
 
-## Supported clients
+## Supported redis clients
 
 - `ioredis`
 
@@ -41,11 +40,13 @@ Provide an instance of the RedisClient from `ioredis` package.
 
 Default: `3600000` (1 hour)
 
-Adjust the size of partitions (in milliseconds). Use with caution, chaning the partition size will make exiting data undiscoverable.
+Adjust the size of partitions (in milliseconds). Use with caution, as changing the partition size will make existing data undiscoverable.
 
 ### `keyPrefix: string`
 
-A prefix (string) added to all keys. Example: `myprefix:`.
+Default: `inspector:`
+
+A prefix (string) added to all keys.
 
 ## License
 
