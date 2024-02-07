@@ -1,27 +1,71 @@
 import { randomBytes } from 'node:crypto';
-import { Store, StoreEntry, StoreQueryResult } from '@exotjs/measurements/types';
 import { RedisClient, RedisStoreInit } from './types';
+import type { Store, StoreEntry, StoreQueryResult } from '@exotjs/measurements/types';
+import type { Redis } from 'ioredis';
+
+const QUERY_MAX_ITERATIONS = 1000;
 
 export class RedisStore implements Store {
+  readonly defaultExpire?: number;
+
   readonly nodeId: string = randomBytes(3).toString('hex');
 
   readonly keyPrefix: string;
 
   readonly partitionSize: number;
 
-  readonly redis?: RedisClient;
+  readonly redis?: Redis;
 
   uidCounter: number = 1;
 
   constructor(init: RedisStoreInit) {
     const {
+      defaultExpire,
       keyPrefix = 'inspector:',
       partitionSize = 3600000, // 1 hour
       redis,
     } = init;
+    this.defaultExpire = defaultExpire;
     this.partitionSize = partitionSize;
     this.keyPrefix = keyPrefix;
-    this.redis = redis as RedisClient;
+    this.redis = redis;
+    this.#setup();
+  }
+
+  #setup() {
+    this.getClient().defineCommand('exot_set_add', {
+      numberOfKeys: 1,
+      lua: `
+      local key = KEYS[1]
+      local time = ARGV[1]
+      local value = cjson.decode(ARGV[2])
+      local label = ARGV[3]
+      local expire = tonumber(ARGV[4])
+      local entryid = ARGV[5]
+      local nodeid = ARGV[6]
+      
+      local entries = redis.call('ZRANGEBYSCORE', key, time, time, 'WITHSCORES')
+      local remove = {}
+      
+      for i = 1, #entries, 2 do
+          local entry = cjson.decode(entries[i])
+          if entry[1] == label and string.sub(entry[3], 1, #nodeid) == nodeid then
+              table.insert(remove, entries[i])
+              table.insert(remove, entries[i + 1])
+          end
+      end
+      
+      if #remove > 0 then
+          redis.call('ZREM', key, unpack(remove))
+      end
+      
+      redis.call('ZADD', key, time, cjson.encode({label, value, entryid}))
+      
+      if expire then
+          redis.call('EXPIRE', key, expire)
+      end
+      `,
+    })
   }
 
   async #delete(key: string, time: number, label: string = '') {
@@ -39,6 +83,10 @@ export class RedisStore implements Store {
   async #query(key: string, startTime: number, endTime: number, limit: number = 1000): Promise<StoreQueryResult> {
     const entries: [number, string][] = [];
     const partitionEndTime = endTime + this.partitionSize;
+    const iterations = Math.ceil((partitionEndTime - startTime) / this.partitionSize);
+    if (iterations > QUERY_MAX_ITERATIONS) {
+      throw new Error('Time span is too large.');
+    }
     for (let time = startTime; time <= partitionEndTime; time += this.partitionSize) {
       const result = await this.getClient().zrange(this.getPartitionKey(key, time), startTime, '(' + endTime, 'BYSCORE', 'LIMIT', 0, limit + 1, 'WITHSCORES');
       for (let i = 0; i < result.length; i += 2) {
@@ -76,7 +124,7 @@ export class RedisStore implements Store {
     if (!this.redis) {
       throw new Error('Store destroyed.');
     }
-    return this.redis;
+    return this.redis as RedisClient;
   }
 
   generateEntryUid() {
@@ -89,16 +137,14 @@ export class RedisStore implements Store {
   }
 
   async destroy() {
-    if (this.redis) {
-      await this.redis.quit();
-    }
+    // noop
   }
 
   async listDelete(key: string, time: number, label?: string) {
     return this.#delete(key, time, label);
   }
 
-  async listAdd<T>(key: string, time: number, value: T, label: string = '', expire?: number | undefined) {
+  async listAdd<T>(key: string, time: number, value: T, label: string = '', expire: number | undefined = this.defaultExpire) {
     const pkey = this.getPartitionKey(key, time);
     let chain = this.getClient().multi().zadd(pkey, time, JSON.stringify([label, value, this.generateEntryUid()]));
     if (expire) {
@@ -111,22 +157,8 @@ export class RedisStore implements Store {
     return this.#query(key, startTime, endTime, limit);
   }
 
-  async setAdd<T>(key: string, time: number, value: T, label: string = '', expire?: number | undefined): Promise<void> {
-    const pkey = this.getPartitionKey(key, time);
-    const client = this.getClient();
-    const entries = await client.zrange(pkey, time, time, 'BYSCORE');
-    const remove = entries.filter((entry) => {
-      return this.#parseJSON(entry)?.[0] === label;
-    });
-    const chain = client.multi();
-    if (remove.length) {
-      chain.zrem(pkey, ...remove);
-    }
-    chain.zadd(pkey, time, JSON.stringify([label, value]));
-    if (expire) {
-      chain.expire(pkey, Math.floor(expire / 1000));
-    }
-    await chain.exec();
+  async setAdd<T>(key: string, time: number, value: T, label: string = '', expire: number | undefined = this.defaultExpire): Promise<void> {
+    await this.getClient().exot_set_add(this.getPartitionKey(key, time), String(time), JSON.stringify(value), label, expire ? String(expire) : 'nil', this.generateEntryUid(), this.nodeId);
   }
 
   async setDelete(key: string, time: number, label?: string | undefined): Promise<void> {

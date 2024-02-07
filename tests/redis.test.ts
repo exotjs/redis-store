@@ -1,13 +1,16 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Redis } from 'ioredis';
+import { Measurements } from '@exotjs/measurements';
+import { roundTime } from '@exotjs/measurements/helpers';
 import { RedisStore } from '../lib/index.js';
 
 describe('RedisStore', () => {
-  const redis = new Redis();
-
+  let redis: Redis;
   let store: RedisStore;
 
-  beforeEach(() => {
+  beforeAll(() => {
+    redis = new Redis();
+
     store = new RedisStore({
       keyPrefix: 'storetest:',
       partitionSize: 3600000,
@@ -21,6 +24,7 @@ describe('RedisStore', () => {
 
   afterAll(async () => {
     await store.destroy();
+    await redis.quit();
   });
 
   describe('.getPartitionKey()', () => {
@@ -136,4 +140,63 @@ describe('RedisStore', () => {
     });
   });
 
+  describe('Clustering', () => {
+    let store2: RedisStore;
+
+    beforeAll(() => {
+      store2 = new RedisStore({
+        keyPrefix: store.keyPrefix,
+        partitionSize: store.partitionSize,
+        redis,
+      });
+    });
+
+    afterAll(async () => {
+      await store2.destroy();
+    });
+
+    it('should store the same value twice if set from a different instance', async () => {
+      await store.setAdd('test', 0, 'a');
+      await store2.setAdd('test', 0, 'a');
+      const result = await store.setQuery('test', 0, 2);
+      expect(result).toEqual({
+        entries: [
+          [0, '', 'a'],
+          [0, '', 'a'],
+        ],
+        hasMore: false,
+      });
+    });
+
+    describe('Measurements', () => {
+      it('should merge entries', async () => {
+        const now = Date.now();
+        const m1 = new Measurements({
+          measurements: [{
+            key: 'test',
+            type: 'aggregate',
+            interval: 5000,
+          }],
+          store, 
+        });
+        const m2 = new Measurements({
+          measurements: [{
+            key: 'test',
+            type: 'aggregate',
+            interval: 5000,
+          }],
+          store: store2, 
+        });
+        m1.aggregate('test').push([1]);
+        m2.aggregate('test').push([3]);
+        const result = await m1.export({
+          startTime: now - 5000,
+          endTime: now,
+        });
+        expect(result[0].measurements).toEqual([
+          [roundTime(now, 5000), '', [1,3,2,4,1,3,2]],
+        ]);
+      });
+    });
+  });
 });

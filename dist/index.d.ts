@@ -1,11 +1,13 @@
-import { Store, StoreQueryResult } from '@exotjs/measurements/types';
 import { RedisClient, RedisStoreInit } from './types';
+import type { Store, StoreQueryResult } from '@exotjs/measurements/types';
+import type { Redis } from 'ioredis';
 export declare class RedisStore implements Store {
     #private;
+    readonly defaultExpire?: number;
     readonly nodeId: string;
     readonly keyPrefix: string;
     readonly partitionSize: number;
-    readonly redis?: RedisClient;
+    readonly redis?: Redis;
     uidCounter: number;
     constructor(init: RedisStoreInit);
     getPartitionKey(key: string, time: number): string;
