@@ -1,3 +1,4 @@
+import proc from 'node:process';
 import {
   afterAll,
   afterEach,
@@ -17,7 +18,10 @@ describe('RedisStore', () => {
   let store: RedisStore;
 
   beforeAll(() => {
-    redis = new Redis();
+    redis = new Redis({
+      host: proc.env.REDIS_HOST,
+      port: proc.env.REDIS_PORT ? parseInt(String(proc.env.REDIS_PORT), 10) : void 0,
+    });
 
     store = new RedisStore({
       keyPrefix: 'storetest:',

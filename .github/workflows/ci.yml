@@ -35,8 +35,8 @@ jobs:
       - run: bun install
       - run: bun run test
         env:
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
+          REDIS_HOST: redis
+          REDIS_PORT: 6379
 
   node:
     name: 'Node.js v${{ matrix.node }}'
@@ -60,5 +60,5 @@ jobs:
       - run: npm install --frozen-lockfile
       - run: NODE_OPTIONS="--no-warnings" npm run test
         env:
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
+          REDIS_HOST: redis
+          REDIS_PORT: 6379
