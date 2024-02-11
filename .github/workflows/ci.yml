@@ -37,7 +37,7 @@ jobs:
       - run: bun install
       - run: bun run test
         env:
-          REDIS_HOST: redis
+          REDIS_HOST: localhost
           REDIS_PORT: 6379
 
   node:
@@ -64,5 +64,5 @@ jobs:
       - run: npm install --frozen-lockfile
       - run: NODE_OPTIONS="--no-warnings" npm run test
         env:
-          REDIS_HOST: redis
+          REDIS_HOST: localhost
           REDIS_PORT: 6379
