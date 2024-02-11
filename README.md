@@ -38,7 +38,7 @@ Provide an instance of the RedisClient from `ioredis` package.
 
 ### `partitionSize: number`
 
-Default: `3600000` (1 hour)
+Default: `14400000` (4 hour)
 
 Adjust the size of partitions (in milliseconds). Use with caution, as changing the partition size will make existing data undiscoverable.
 

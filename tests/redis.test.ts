@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { Redis } from 'ioredis';
 import { Measurements } from '@exotjs/measurements';
 import { roundTime } from '@exotjs/measurements/helpers';
@@ -31,7 +39,9 @@ describe('RedisStore', () => {
     it('should return partition key with prefix', () => {
       const time = Date.now();
       const key = store.getPartitionKey('test', time);
-      expect(key).toEqual(`${store.keyPrefix}test:${Math.floor(time / store.partitionSize) * store.partitionSize}`);
+      expect(key).toEqual(
+        `${store.keyPrefix}test:${Math.floor(time / store.partitionSize) * store.partitionSize}`
+      );
     });
   });
 
@@ -46,9 +56,9 @@ describe('RedisStore', () => {
 
   describe('.listAdd()', () => {
     it('should add entry to the list', async () => {
-      await store.listAdd('test', 0, 'a');
-      await store.listAdd('test', 0, 'a');
-      await store.listAdd('test', 0, 'b');
+      await store.listAdd('test', 0, '', 'a');
+      await store.listAdd('test', 0, '', 'a');
+      await store.listAdd('test', 0, '', 'b');
       const result = await store.listQuery('test', 0, 1);
       expect(result).toEqual({
         entries: [
@@ -63,15 +73,13 @@ describe('RedisStore', () => {
 
   describe('.listDelete()', () => {
     it('should delete a matching entries from the list', async () => {
-      await store.listAdd('test', 0, 'a', 'label1');
-      await store.listAdd('test', 0, 'b', 'label2');
-      await store.listAdd('test', 0, 'c', 'label1');
+      await store.listAdd('test', 0, 'label1', 'a');
+      await store.listAdd('test', 0, 'label2', 'b');
+      await store.listAdd('test', 0, 'label1', 'c');
       await store.listDelete('test', 0, 'label1');
       const result = await store.listQuery('test', 0, 1);
       expect(result).toEqual({
-        entries: [
-          [0, 'label2', 'b'],
-        ],
+        entries: [[0, 'label2', 'b']],
         hasMore: false,
       });
     });
@@ -79,9 +87,9 @@ describe('RedisStore', () => {
 
   describe('.listQuery()', () => {
     it('should return entries', async () => {
-      await store.listAdd('test', 0, 'a');
-      await store.listAdd('test', 0, 'b');
-      await store.listAdd('test', 0, 'c');
+      await store.listAdd('test', 0, '', 'a');
+      await store.listAdd('test', 0, '', 'b');
+      await store.listAdd('test', 0, '', 'c');
       const result = await store.listQuery('test', 0, 1);
       expect(result).toEqual({
         entries: [
@@ -93,17 +101,15 @@ describe('RedisStore', () => {
       });
     });
   });
-  
+
   describe('.setAdd()', () => {
     it('should add one entry to the set', async () => {
-      await store.setAdd('test', 0, 'a');
-      await store.setAdd('test', 0, 'b');
-      await store.setAdd('test', 0, 'c');
+      await store.setAdd('test', 0, '', 'a');
+      await store.setAdd('test', 0, '', 'b');
+      await store.setAdd('test', 0, '', 'c');
       const result = await store.setQuery('test', 0, 1);
       expect(result).toEqual({
-        entries: [
-          [0, '', 'c'],
-        ],
+        entries: [[0, '', 'c']],
         hasMore: false,
       });
     });
@@ -111,14 +117,12 @@ describe('RedisStore', () => {
 
   describe('.setDelete()', () => {
     it('should delete a matching entries from the list', async () => {
-      await store.setAdd('test', 0, 'a', 'label1');
-      await store.setAdd('test', 0, 'b', 'label2');
+      await store.setAdd('test', 0, 'label1', 'a');
+      await store.setAdd('test', 0, 'label2', 'b');
       await store.setDelete('test', 0, 'label1');
       const result = await store.setQuery('test', 0, 1);
       expect(result).toEqual({
-        entries: [
-          [0, 'label2', 'b'],
-        ],
+        entries: [[0, 'label2', 'b']],
         hasMore: false,
       });
     });
@@ -126,9 +130,9 @@ describe('RedisStore', () => {
 
   describe('.setQuery()', () => {
     it('should return entries', async () => {
-      await store.setAdd('test', 0, 'a');
-      await store.setAdd('test', 1, 'b');
-      await store.setAdd('test', 2, 'c');
+      await store.setAdd('test', 0, '', 'a');
+      await store.setAdd('test', 1, '', 'b');
+      await store.setAdd('test', 2, '', 'c');
       const result = await store.setQuery('test', 0, 2);
       expect(result).toEqual({
         entries: [
@@ -156,8 +160,8 @@ describe('RedisStore', () => {
     });
 
     it('should store the same value twice if set from a different instance', async () => {
-      await store.setAdd('test', 0, 'a');
-      await store2.setAdd('test', 0, 'a');
+      await store.setAdd('test', 0, '', 'a');
+      await store2.setAdd('test', 0, '', 'a');
       const result = await store.setQuery('test', 0, 2);
       expect(result).toEqual({
         entries: [
@@ -172,20 +176,24 @@ describe('RedisStore', () => {
       it('should merge entries', async () => {
         const now = Date.now();
         const m1 = new Measurements({
-          measurements: [{
-            key: 'test',
-            type: 'aggregate',
-            interval: 5000,
-          }],
-          store, 
+          measurements: [
+            {
+              key: 'test',
+              type: 'aggregate',
+              interval: 5000,
+            },
+          ],
+          store,
         });
         const m2 = new Measurements({
-          measurements: [{
-            key: 'test',
-            type: 'aggregate',
-            interval: 5000,
-          }],
-          store: store2, 
+          measurements: [
+            {
+              key: 'test',
+              type: 'aggregate',
+              interval: 5000,
+            },
+          ],
+          store: store2,
         });
         m1.aggregate('test').push([1]);
         m2.aggregate('test').push([3]);
@@ -194,7 +202,7 @@ describe('RedisStore', () => {
           endTime: now,
         });
         expect(result[0].measurements).toEqual([
-          [roundTime(now, 5000), '', [1,3,2,4,1,3,2]],
+          [roundTime(now, 5000), '', [1, 3, 2, 4, 1, 3, 2]],
         ]);
       });
     });

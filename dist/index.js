@@ -8,7 +8,7 @@ export class RedisStore {
     redis;
     uidCounter = 1;
     constructor(init) {
-        const { defaultExpire, keyPrefix = 'inspector:', partitionSize = 3600000, // 1 hour
+        const { defaultExpire, keyPrefix = 'inspector:', partitionSize = 14400000, // 4 hours
         redis, } = init;
         this.defaultExpire = defaultExpire;
         this.partitionSize = partitionSize;
@@ -98,7 +98,10 @@ export class RedisStore {
         }
     }
     getPartitionKey(key, time) {
-        return this.keyPrefix + key + ':' + (Math.floor(time / this.partitionSize) * this.partitionSize);
+        return (this.keyPrefix +
+            key +
+            ':' +
+            Math.floor(time / this.partitionSize) * this.partitionSize);
     }
     getClient() {
         if (!this.redis) {
@@ -119,9 +122,11 @@ export class RedisStore {
     async listDelete(key, time, label) {
         return this.#delete(key, time, label);
     }
-    async listAdd(key, time, value, label = '', expire = this.defaultExpire) {
+    async listAdd(key, time, label, value, expire = this.defaultExpire) {
         const pkey = this.getPartitionKey(key, time);
-        let chain = this.getClient().multi().zadd(pkey, time, JSON.stringify([label, value, this.generateEntryUid()]));
+        let chain = this.getClient()
+            .multi()
+            .zadd(pkey, time, JSON.stringify([label, value, this.generateEntryUid()]));
         if (expire) {
             chain = chain.expire(pkey, Math.floor(expire / 1000));
         }
@@ -130,7 +135,7 @@ export class RedisStore {
     async listQuery(key, startTime, endTime, limit) {
         return this.#query(key, startTime, endTime, limit);
     }
-    async setAdd(key, time, value, label = '', expire = this.defaultExpire) {
+    async setAdd(key, time, label, value, expire = this.defaultExpire) {
         await this.getClient().exot_set_add(this.getPartitionKey(key, time), String(time), JSON.stringify(value), label, expire ? String(expire) : 'nil', this.generateEntryUid(), this.nodeId);
     }
     async setDelete(key, time, label) {

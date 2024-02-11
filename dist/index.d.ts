@@ -16,9 +16,9 @@ export declare class RedisStore implements Store {
     clear(key?: string | undefined): Promise<void>;
     destroy(): Promise<void>;
     listDelete(key: string, time: number, label?: string): Promise<void>;
-    listAdd<T>(key: string, time: number, value: T, label?: string, expire?: number | undefined): Promise<void>;
+    listAdd<T>(key: string, time: number, label: string, value: T, expire?: number | undefined): Promise<void>;
     listQuery(key: string, startTime: number, endTime: number, limit?: number): Promise<StoreQueryResult>;
-    setAdd<T>(key: string, time: number, value: T, label?: string, expire?: number | undefined): Promise<void>;
+    setAdd<T>(key: string, time: number, label: string, value: T, expire?: number | undefined): Promise<void>;
     setDelete(key: string, time: number, label?: string | undefined): Promise<void>;
     setQuery(key: string, startTime: number, endTime: number, limit?: number): Promise<StoreQueryResult>;
 }
